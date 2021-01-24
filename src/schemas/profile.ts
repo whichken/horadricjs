@@ -7,6 +7,7 @@ export type Config = {
 export type Profile = {
   extension?: string
   pathPrefixes?: string[]
+  fileRenames?: { regex: string; substitution: string }[]
   delay?: number
   selection: {
     video?: {
