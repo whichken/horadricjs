@@ -8,7 +8,7 @@ Lightweight webhook-based video transcoding container.
 ## Quick start
 
 ```bash
-docker run -p 5000:5000 -v /mnt/user/your_media:/data -v /mnt/user/your_media:/out whichken/horadrictube
+docker run -p 5000:5000 -v /mnt/user/your_media:/data -v /mnt/user/your_media:/out ghcr.io/whichken/horadrictube/horadrictube
 ```
 
 ## Configuration
