@@ -3,8 +3,8 @@ import { promisify } from "util"
 import { randomBytes } from "crypto"
 import { logger } from "./logger"
 import { Profile, RuleClause, Rule, EncodingProfile } from "./schemas/profile"
-import { parse, sep } from "path"
-import { renameSync } from "fs"
+import { parse, sep, dirname } from "path"
+import { renameSync, mkdirSync } from "fs"
 
 type Stream = {
   // Only guaranteed fields
@@ -236,6 +236,8 @@ export class VideoFile {
   }
 
   move() {
+    // Make sure the output directory exists
+    mkdirSync(dirname(this.destPath), { recursive: true })
     renameSync(this.tempPath, this.destPath)
   }
 }
