@@ -4,7 +4,7 @@ import { randomBytes } from "crypto"
 import { logger } from "./logger"
 import { Profile, RuleClause, Rule, EncodingProfile } from "./schemas/profile"
 import { parse, sep, dirname } from "path"
-import { renameSync, mkdirSync } from "fs"
+import { copyFileSync, unlinkSync, mkdirSync } from "fs"
 
 type Stream = {
   // Only guaranteed fields
@@ -238,6 +238,7 @@ export class VideoFile {
   move() {
     // Make sure the output directory exists
     mkdirSync(dirname(this.destPath), { recursive: true })
-    renameSync(this.tempPath, this.destPath)
+    copyFileSync(this.tempPath, this.destPath)
+    unlinkSync(this.tempPath)
   }
 }
