@@ -137,8 +137,15 @@ export class VideoFile {
 
     // Set destination path
     const path = parse(this.srcPath)
-    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${path.name} HEVC.${profile.extension || "mkv"}`
+    let filename = (profile.fileRenames || []).reduce(
+      (prev, current) => prev.replace(new RegExp(current.regex), current.substitution),
+      path.name
+    )
+    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${filename}.${profile.extension || "mkv"}`
     this.tempPath = `/transcode/${randomBytes(16).toString("hex")}.${profile.extension || "mkv"}`
+
+    logger.debug(`Set temporary encode path to ${this.tempPath}`)
+    logger.debug(`Set destination path to ${this.destPath}`)
 
     // Select the appropriate streams
     for (const type of ["video", "audio", "subtitle"]) {

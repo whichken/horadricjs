@@ -3,6 +3,7 @@
     "default": {
       "extension": "mkv",
       "pathPrefixes": ["/media/"],
+      "fileRenames": [{ "regex": "(720p|1080p|2160p)$", "substitution": "720p HEVC" }],
       "delay": 0,
       "selection": {
         "audio": {
