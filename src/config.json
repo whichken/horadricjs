@@ -3,7 +3,7 @@
     "default": {
       "extension": "mkv",
       "pathPrefixes": ["/media/"],
-      "delay": 60,
+      "delay": 0,
       "selection": {
         "audio": {
           "allowSecondary": true,

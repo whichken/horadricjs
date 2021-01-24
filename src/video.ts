@@ -137,8 +137,8 @@ export class VideoFile {
 
     // Set destination path
     const path = parse(this.srcPath)
-    this.destPath = `${path.dir}${sep}${path.name} HEVC.${profile.extension || "mkv"}`
-    this.tempPath = `./transcode/${randomBytes(16).toString("hex")}.${profile.extension || "mkv"}`
+    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${path.name} HEVC.${profile.extension || "mkv"}`
+    this.tempPath = `/transcode/${randomBytes(16).toString("hex")}.${profile.extension || "mkv"}`
 
     // Select the appropriate streams
     for (const type of ["video", "audio", "subtitle"]) {
@@ -188,7 +188,7 @@ export class VideoFile {
 
   async encode() {
     return new Promise((resolve, reject) => {
-      let command: FfmpegCommand = ffmpeg(this.srcPath).duration(15)
+      let command: FfmpegCommand = ffmpeg(this.srcPath)
 
       for (const stream of this.destStreams) {
         command.addOption(`-map 0:${stream.index}`)

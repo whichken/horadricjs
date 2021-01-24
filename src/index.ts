@@ -4,6 +4,7 @@ import { SonarrEvent } from "./schemas/sonarr"
 import { VideoFile } from "./video"
 import config from "./config.json"
 import { Profile } from "./schemas/profile"
+import { sep } from "path"
 
 const app = express()
 
@@ -13,6 +14,7 @@ app.use(json())
 // Log all incoming requests
 app.use((req, _res, next) => {
   logger.info(`[${req.ip}] ${req.method} ${req.path}`)
+  if (req.body) logger.debug("Request body.", req.body)
   next()
 })
 
@@ -42,8 +44,8 @@ app
     const profile: Profile = config.profiles[req.params.key] || config.profiles.default
 
     // Determine path
-    let path = event.episodeFile.path
-    for (const prefix of profile.pathPrefixes) if (path.startsWith(prefix)) path.replace(prefix, "")
+    let path = `${event.series.path}${sep}${event.episodeFile.relativePath}`
+    for (const prefix of profile.pathPrefixes) if (path.startsWith(prefix)) path = path.replace(prefix, "")
 
     logger.info(`Request to process ${path} with ${req.params.key || "default"} profile.`)
     if (profile.delay) logger.debug(`Delaying encode for ${profile.delay} minutes.`)
