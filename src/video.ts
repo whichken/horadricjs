@@ -4,7 +4,9 @@ import { randomBytes } from "crypto"
 import { logger } from "./logger"
 import { Profile, RuleClause, Rule, EncodingProfile } from "./schemas/profile"
 import { parse, sep, dirname } from "path"
-import { copyFileSync, unlinkSync, mkdirSync } from "fs"
+import { copyFileSync, unlinkSync, mkdirSync, existsSync } from "fs"
+import config from "./config.json"
+import { Consola } from "consola"
 
 type Stream = {
   // Only guaranteed fields
@@ -65,20 +67,42 @@ class RuleEvaluator {
 }
 
 export class VideoFile {
+  public logger: Consola
+  public requestId: string
+  public profile: Profile
+
   public srcStreams?: Stream[]
   public destStreams?: Stream[]
 
   public tempPath?: string
   public destPath?: string
 
-  constructor(public srcPath: string) {}
+  constructor(public srcPath: string, profileName?: string) {
+    // Assign a random id to all videos so logs can be correlated when processing concurrently
+    this.requestId = randomBytes(2).toString("hex")
+    this.logger = logger.withTag(`video:${this.requestId}`)
+
+    this.profile = config.profiles[profileName] || config.profiles.default
+    if (profileName && !config.profiles[profileName])
+      this.logger.warn(`Profile ${profileName} not found. Using default`)
+
+    for (const prefix of this.profile.pathPrefixes)
+      if (this.srcPath.startsWith(prefix)) this.srcPath = this.srcPath.replace(prefix, "")
+
+    this.logger.info(`Request to process ${this.srcPath} with ${profileName || "default"} profile`)
+  }
 
   async analyze() {
+    if (!existsSync(this.srcPath)) {
+      this.logger.warn(`Path ${this.srcPath} no longer exists or is otherwise unaccessible`)
+      throw Error(`Path ${this.srcPath} no longer exists or is otherwise unaccessible`)
+    }
+
     const ffprobe = promisify(ffmpeg.ffprobe)
+    this.logger.debug("Beginning probe of source file:")
 
     try {
       const result = (await ffprobe(this.srcPath)) as FfprobeData
-      logger.debug("Probe", JSON.stringify(result))
       this.srcStreams = []
 
       for (const stream of result.streams) {
@@ -86,8 +110,8 @@ export class VideoFile {
         if (!bitrate && stream.tags?.["BPS-eng"]) bitrate = parseInt(stream.tags?.["BPS-eng"])
 
         const common: Stream = {
-          type: stream.codec_type! as "video" | "audio" | "subtitle",
           index: stream.index,
+          type: stream.codec_type! as "video" | "audio" | "subtitle",
           codec: stream.codec_name!,
           language: stream.tags?.language,
           title: stream.tags?.title,
@@ -124,71 +148,80 @@ export class VideoFile {
             break
 
           default:
-            break
+            this.logger.debug(`\tIgnoring ${stream.codec_type} stream (idx:${stream.index})`)
+            continue
         }
+
+        this.logger.debug(`\t${JSON.stringify(this.srcStreams.slice(-1).pop())}`)
       }
     } catch (error) {
-      logger.error("Unable to analyze file!", error)
+      this.logger.error("Unable to probe video", error)
+      throw error
     }
   }
 
-  configure(profile: Profile) {
+  configure() {
     this.destStreams = []
 
     // Set destination path
     const path = parse(this.srcPath)
-    let filename = (profile.fileRenames || []).reduce(
+    let filename = (this.profile.fileRenames || []).reduce(
       (prev, current) => prev.replace(new RegExp(current.regex), current.substitution),
       path.name
     )
-    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${filename}.${profile.extension || "mkv"}`
-    this.tempPath = `/transcode/${randomBytes(16).toString("hex")}.${profile.extension || "mkv"}`
+    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${filename}.${this.profile.extension || "mkv"}`
+    this.tempPath = `/transcode/${randomBytes(16).toString("hex")}.${this.profile.extension || "mkv"}`
 
-    logger.debug(`Set temporary encode path to ${this.tempPath}`)
-    logger.debug(`Set destination path to ${this.destPath}`)
+    this.logger.debug(`Set temporary encode path to ${this.tempPath}`)
+    this.logger.debug(`Set destination path to ${this.destPath}`)
 
     // Select the appropriate streams
+    this.logger.debug("Selecting streams to include in output:")
     for (const type of ["video", "audio", "subtitle"]) {
       let primary: Stream
-      if (profile.selection[type]?.primary)
+      if (this.profile.selection[type]?.primary)
         primary = this.srcStreams
           .filter(s => s.type === type)
-          .find(s => profile.selection[type].primary.some(r => new RuleEvaluator(r).evaluate(s)))
+          .find(s => this.profile.selection[type].primary.some(r => new RuleEvaluator(r).evaluate(s)))
 
       if (!primary && type !== "subtitle") {
         primary = this.srcStreams.filter(s => s.type === type).pop()
-        logger.warn(`No ${type} stream passed primary rules. Failing over to using the first available stream.`)
+        this.logger.debug(`\tNo ${type} stream passed primary rules. Using the first available stream.`)
       }
 
       if (primary) {
         this.destStreams.push({ ...primary, primary: true })
-        logger.debug(`Primary ${type} selected.`, primary)
+        this.logger.debug(`\t${JSON.stringify({ index: primary.index, type: primary.type, primary: true })}`)
       }
 
       // Select any secondary streams that should be used
-      if (profile.selection[type]?.allowSecondary && profile.selection[type]?.secondary) {
+      if (this.profile.selection[type]?.allowSecondary && this.profile.selection[type]?.secondary) {
         const secondary = this.srcStreams
           .filter(s => s.type === type && s !== primary)
-          .filter(s => profile.selection[type].secondary.some(r => new RuleEvaluator(r).evaluate(s)))
+          .filter(s => this.profile.selection[type].secondary.some(r => new RuleEvaluator(r).evaluate(s)))
           .map(s => ({ ...s, primary: false }))
         this.destStreams.push(...secondary)
-        secondary.forEach(s => logger.debug(`Secondary ${type} selected.`, s))
+        secondary.forEach(s =>
+          this.logger.debug(`\t${JSON.stringify({ index: s.index, type: s.type, primary: false })}`)
+        )
       }
     }
 
     // Execute all streams thru the rule engine to determine their encoding settings
+    this.logger.debug("Determining encoding settings:")
     for (const stream of this.destStreams) {
       // Default to just copying the stream if no rule changes it
       stream.profile = { codec: "copy" }
 
-      for (const rule of profile.encoder.filter(r => r.type === stream.type))
+      for (const rule of this.profile.encoder.filter(r => r.type === stream.type))
         if (new RuleEvaluator(rule).evaluate(stream)) stream.profile = { ...stream.profile, ...rule.result }
 
-      logger.debug(
-        `Encoding settings selected for ${stream.primary ? "primary" : "secondary"} ${stream.type} (idx: ${
-          stream.index
-        }).`,
-        stream.profile
+      this.logger.debug(
+        `\t${JSON.stringify({
+          index: stream.index,
+          codec: stream.profile.codec,
+          ...(stream.profile.codec !== "copy" && { ...stream.profile })
+        })}`
       )
     }
   }
@@ -200,18 +233,17 @@ export class VideoFile {
       for (const stream of this.destStreams) {
         command.addOption(`-map 0:${stream.index}`)
 
-        const filters: string[] = []
-        if (stream.profile.size) filters.push(`scale=${stream.profile.size}`)
-        if (stream.profile.tonemap)
-          filters.push(
-            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
-          )
-        // if (filters.length) command.addOption(`-filter:${stream.index} "${filters.join(",")}"`)
-        if (filters.length) command.complexFilter(`[0:${stream.index}]${filters.join(",")}`)
-
         command.addOption(`-c:${stream.index} ${stream.profile.codec}`)
 
         if (stream.profile.codec !== "copy") {
+          const filters: string[] = []
+          if (stream.profile.size) filters.push(`scale=${stream.profile.size}`)
+          if (stream.profile.tonemap)
+            filters.push(
+              "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+            )
+          if (filters.length) command.complexFilter(`[0:${stream.index}]${filters.join(",")}`)
+
           if (stream.profile.crf) command.addOption(`-crf ${stream.profile.crf}`)
           if (stream.profile.bitrate) command.addOption(`-b:${stream.index} ${stream.profile.bitrate}`)
         }
@@ -219,23 +251,25 @@ export class VideoFile {
 
       // Promise callbacks
       command.on("end", (stdout: string, stderr: string) => {
-        logger.info("Encoding finished.")
+        this.logger.info("Encoding completed successfully")
         resolve(this.tempPath)
       })
       command.on("error", (err, stdout, stderr) => reject(err))
 
       // Other callbacks
-      let lastUpdate = new Date()
-      command.on("progress", (progress: any) => {
-        // Progress updates come often. Throw a regulator on there so as not to drown in updates.
-        const threshold = new Date()
-        threshold.setSeconds(threshold.getSeconds() - 5)
-        if (lastUpdate > threshold) return
-        lastUpdate = new Date()
-        logger.debug("Encoding progress.", { time: progress.timemark, fps: progress.currentFps })
+      let throttled = false
+      command.on("stderr", (stderr: string) => {
+        if (stderr.startsWith("frame=") && !throttled) {
+          this.logger.debug(stderr)
+          throttled = true
+          setTimeout(() => (throttled = false), 60000)
+        }
       })
 
-      command.on("start", (command: string) => logger.debug("Starting encode.", { command }))
+      command.on("start", (command: string) => {
+        this.logger.info("Starting encode")
+        this.logger.debug(command)
+      })
 
       // Start encode
       command.save(this.tempPath)
@@ -243,9 +277,14 @@ export class VideoFile {
   }
 
   move() {
-    // Make sure the output directory exists
-    mkdirSync(dirname(this.destPath), { recursive: true })
-    copyFileSync(this.tempPath, this.destPath)
-    unlinkSync(this.tempPath)
+    try {
+      // Make sure the output directory exists
+      mkdirSync(dirname(this.destPath), { recursive: true })
+      copyFileSync(this.tempPath, this.destPath)
+      unlinkSync(this.tempPath)
+      this.logger.success(`Successfully created ${this.destPath}`)
+    } catch (error) {
+      this.logger.error("Unable to move file to final location.", error)
+    }
   }
 }

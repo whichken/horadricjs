@@ -1,6 +1,10 @@
-import consola, { LogLevel } from "consola"
+import consola, { LogLevel, BasicReporter } from "consola"
 
-// consola.level = process.env.DEBUG ? LogLevel.Debug : LogLevel.Info
-consola.level = LogLevel.Debug
+const logger = consola.create({
+  reporters: [new BasicReporter()],
+  level: process.env.DEBUG ? LogLevel.Debug : LogLevel.Info
+})
 
-export { consola as logger }
+logger.debug("Debug mode enabled. Logging will be noisy.")
+
+export { logger }

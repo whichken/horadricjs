@@ -40,10 +40,12 @@
             {
               "type": "subtitle",
               "description": "Include any other English subtitles",
-              "rules": [
-                { "property": "language", "operator": "==", "value": "eng" },
-                { "property": "title", "operator": "contains", "value": "sdh" }
-              ]
+              "rules": [{ "property": "language", "operator": "==", "value": "eng" }]
+            },
+            {
+              "type": "subtitle",
+              "description": "Include any other SDH subtitles",
+              "rules": [{ "property": "title", "operator": "contains", "value": "sdh" }]
             }
           ]
         }

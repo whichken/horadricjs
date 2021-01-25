@@ -13,18 +13,21 @@ app.use(json())
 
 // Log all incoming requests
 app.use((req, _res, next) => {
-  logger.info(`[${req.ip}] ${req.method} ${req.path}`)
+  logger.debug(`[${req.ip}] ${req.method} ${req.path}`)
   if (req.body) logger.debug("Request body.", req.body)
   next()
+})
+
+app.get("/", (_req, res) => {
+  return res.json({ success: true })
 })
 
 app.get("/test/:file", async (req, res) => {
   const video = new VideoFile(`./test/${req.params.file}.mkv`)
   await video.analyze()
-  video.configure(config.profiles.default as any)
-  const result = await video.encode()
-  return res.json(result)
-  // return res.json()
+  video.configure()
+  video.encode()
+  return res.json({ success: true })
 })
 
 app
@@ -36,39 +39,31 @@ app
     // Check for test message
     if (event.eventType === "Test") {
       logger.success("Received test message from sonarr!")
-      logger.debug("Message", req.body)
       return res.status(200).send()
     }
 
-    // Use the correct profile
-    const profile: Profile = config.profiles[req.params.key] || config.profiles.default
-
     // Determine path
     let path = `${event.series.path}${sep}${event.episodeFile.relativePath}`
-    for (const prefix of profile.pathPrefixes) if (path.startsWith(prefix)) path = path.replace(prefix, "")
-
-    logger.info(`Request to process ${path} with ${req.params.key || "default"} profile.`)
-    if (profile.delay) logger.debug(`Delaying encode for ${profile.delay} minutes.`)
 
     setTimeout(
-      async (path, profile) => {
+      async (path, profileName) => {
         // Encode lifecycle
         try {
-          const video = new VideoFile(`/data/${path}`)
+          const video = new VideoFile(`/data/${path}`, profileName)
           await video.analyze()
-          video.configure(profile)
+          video.configure()
           await video.encode()
           video.move()
         } catch (error) {
           logger.error("An error occurred when encoding this file.", error)
         }
       },
-      (profile.delay || 0) * 60000,
+      0,
       path,
-      profile
+      req.params.key
     )
 
     return res.status(204).send()
   })
 
-app.listen(5000, () => logger.success("Server is listening"))
+app.listen(process.env.PORT || 5000, () => logger.info(`Server is listening on ${process.env.PORT || 5000}`))
