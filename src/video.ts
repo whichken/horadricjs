@@ -88,6 +88,7 @@ export class VideoFile {
 
     for (const prefix of this.profile.pathPrefixes)
       if (this.srcPath.startsWith(prefix)) this.srcPath = this.srcPath.replace(prefix, "")
+    this.srcPath = `/data/${this.srcPath}`
 
     this.logger.info(`Request to process ${this.srcPath} with ${profileName || "default"} profile`)
   }

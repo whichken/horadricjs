@@ -49,7 +49,7 @@ app
       async (path, profileName) => {
         // Encode lifecycle
         try {
-          const video = new VideoFile(`/data/${path}`, profileName)
+          const video = new VideoFile(path, profileName)
           await video.analyze()
           video.configure()
           await video.encode()
