@@ -231,10 +231,10 @@ export class VideoFile {
     return new Promise((resolve, reject) => {
       let command: FfmpegCommand = ffmpeg(this.srcPath)
 
-      for (const stream of this.destStreams) {
+      for (const [index, stream] of this.destStreams.entries()) {
         command.addOption(`-map 0:${stream.index}`)
 
-        command.addOption(`-c:${stream.index} ${stream.profile.codec}`)
+        command.addOption(`-c:${index} ${stream.profile.codec}`)
 
         if (stream.profile.codec !== "copy") {
           const filters: string[] = []
@@ -243,10 +243,10 @@ export class VideoFile {
             filters.push(
               "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
             )
-          if (filters.length) command.complexFilter(`[0:${stream.index}]${filters.join(",")}`)
+          if (filters.length) command.complexFilter(`[0:${index}]${filters.join(",")}`)
 
           if (stream.profile.crf) command.addOption(`-crf ${stream.profile.crf}`)
-          if (stream.profile.bitrate) command.addOption(`-b:${stream.index} ${stream.profile.bitrate}`)
+          if (stream.profile.bitrate) command.addOption(`-b:${index} ${stream.profile.bitrate}`)
         }
       }
 
