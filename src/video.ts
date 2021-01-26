@@ -3,10 +3,10 @@ import { promisify } from "util"
 import { randomBytes } from "crypto"
 import { logger } from "./logger"
 import { Profile, RuleClause, Rule, EncodingProfile } from "./schemas/profile"
-import { parse, sep, dirname } from "path"
+import { parse, dirname } from "path"
 import { copyFileSync, unlinkSync, mkdirSync, existsSync } from "fs"
-import config from "./config.json"
 import { Consola } from "consola"
+import { getDestPath, getProfile, getSourcePath, getTempPath } from "./settings"
 
 type Stream = {
   // Only guaranteed fields
@@ -74,21 +74,20 @@ export class VideoFile {
   public srcStreams?: Stream[]
   public destStreams?: Stream[]
 
+  public srcPath: string
   public tempPath?: string
   public destPath?: string
 
-  constructor(public srcPath: string, profileName?: string) {
+  constructor(srcPath: string, profileName?: string) {
     // Assign a random id to all videos so logs can be correlated when processing concurrently
     this.requestId = randomBytes(2).toString("hex")
     this.logger = logger.withTag(`video:${this.requestId}`)
 
-    this.profile = config.profiles[profileName] || config.profiles.default
-    if (profileName && !config.profiles[profileName])
-      this.logger.warn(`Profile ${profileName} not found. Using default`)
+    this.profile = getProfile(profileName)
 
-    for (const prefix of this.profile.pathPrefixes)
-      if (this.srcPath.startsWith(prefix)) this.srcPath = this.srcPath.replace(prefix, "")
-    this.srcPath = `/data/${this.srcPath}`
+    for (const mapping of this.profile.pathMappings || [])
+      if (srcPath.startsWith(mapping.from)) srcPath = srcPath.replace(mapping.from, mapping.to)
+    this.srcPath = getSourcePath(srcPath)
 
     this.logger.info(`Request to process ${this.srcPath} with ${profileName || "default"} profile`)
   }
@@ -170,8 +169,8 @@ export class VideoFile {
       (prev, current) => prev.replace(new RegExp(current.regex), current.substitution),
       path.name
     )
-    this.destPath = `${path.dir.replace("/data/", "/out/")}${sep}${filename}.${this.profile.extension || "mkv"}`
-    this.tempPath = `/transcode/${randomBytes(16).toString("hex")}.${this.profile.extension || "mkv"}`
+    this.destPath = getDestPath(path.dir, `${filename}.${this.profile.extension || "mkv"}`)
+    this.tempPath = getTempPath(`${randomBytes(16).toString("hex")}.${this.profile.extension || "mkv"}`)
 
     this.logger.debug(`Set temporary encode path to ${this.tempPath}`)
     this.logger.debug(`Set destination path to ${this.destPath}`)

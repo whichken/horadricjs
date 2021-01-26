@@ -6,7 +6,7 @@ RUN wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz 
   wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz.md5 && \
   md5sum -c ffmpeg-git-amd64-static.tar.xz.md5 && \
   tar -xf ffmpeg-git-amd64-static.tar.xz --strip-components 1 -C /bin --wildcards --no-anchored 'ffmpeg' && \
-  tar -xf ffmpeg-git-amd64-static.tar.xz --strip-components 1 -C //bin --wildcards --no-anchored 'ffprobe' && \
+  tar -xf ffmpeg-git-amd64-static.tar.xz --strip-components 1 -C /bin --wildcards --no-anchored 'ffprobe' && \
   rm ffmpeg-git-amd64-static.tar.xz*
 
 # Install dependencies
@@ -28,8 +28,12 @@ COPY --from=build /usr/app/build /usr/app
 
 EXPOSE 5000
 
-VOLUME ["/data", "/out", "/transcode"]
+VOLUME ["/data", "/out", "/config", "/transcode"]
 
-ENV CONCURRENCY=1
+ENV PORT=5000 \
+  DATA_DIR=/data/ \
+  OUT_DIR=/out/ \
+  CONFIG_DIR=/config/ \
+  TRANSCODE_DIR=/transcode/
 
 CMD [ "node", "index.js" ]

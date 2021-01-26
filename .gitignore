@@ -2,4 +2,6 @@
 node_modules
 build
 test
+out
 transcode
+src/config.json

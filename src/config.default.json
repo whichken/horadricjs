@@ -2,7 +2,7 @@
   "profiles": {
     "default": {
       "extension": "mkv",
-      "pathPrefixes": ["/media/"],
+      "pathMappings": [{ "from": "/media/", "to": "/" }],
       "fileRenames": [{ "regex": "(720p|1080p|2160p)$", "substitution": "720p HEVC" }],
       "delay": 0,
       "selection": {
