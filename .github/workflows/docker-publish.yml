@@ -10,26 +10,24 @@ on:
     tags:
       - v*
 
-  # Run tests for any PRs.
-  pull_request:
-
 env:
-  # TODO: Change variable to your image's name.
   IMAGE_NAME: horadrictube
 
 jobs:
-
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
   push:
-
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
     steps:
       - uses: actions/checkout@v2
 
+      # Improve layer cacheing at the expense of ffmpeg version bumps
+      - name: Docker Layer Caching
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+
       - name: Build image
+        timeout-minutes: 10
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
