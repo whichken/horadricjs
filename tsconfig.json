@@ -6,5 +6,5 @@
     "outDir": "build",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "src/config.default.json"]
 }
