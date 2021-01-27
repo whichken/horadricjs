@@ -1,14 +1,16 @@
-import { sep } from "path"
+import { join } from "path"
 import express, { json } from "express"
 
 import { logger } from "./logger"
-import { SonarrEvent } from "./schemas/sonarr"
-import { VideoFile } from "./video"
 import { verifyConfigExists } from "./settings"
+import { Queue } from "./queue"
+import { SonarrEvent } from "./schemas/sonarr"
+import { RadarrEvent } from "./schemas/radarr"
 
 verifyConfigExists()
 
 const app = express()
+const queue = new Queue()
 
 // Middleware
 app.use(json())
@@ -24,40 +26,46 @@ app.get("/", (_req, res) => {
   return res.json({ success: true })
 })
 
-app
-  .post("/sonarr")
-  .post("/sonarr/:tag")
-  .use((req, res) => {
-    const event = req.body as SonarrEvent
+app.post(["/manual", "/manual/:tag"]).use((req, res) => {
+  const event = req.body as { path: string }
 
-    // Check for test message
-    if (event.eventType === "Test") {
-      logger.success("Received test message from sonarr!")
-      return res.status(200).send()
-    }
+  if (!event.path) return res.status(400).json({ error: "Must provide path" })
 
-    // Determine path
-    let path = `${event.series.path}${sep}${event.episodeFile.relativePath}`
+  queue.process(event.path, req.params.tag)
 
-    setTimeout(
-      async (path, profileName) => {
-        // Encode lifecycle
-        try {
-          const video = new VideoFile(path, profileName)
-          await video.analyze()
-          video.configure()
-          await video.encode()
-          video.move()
-        } catch (error) {
-          logger.error("An error occurred when encoding this file.", error)
-        }
-      },
-      0,
-      path,
-      req.params.key
-    )
+  return res.status(204).send()
+})
 
-    return res.status(204).send()
-  })
+app.post(["/sonarr", "/sonarr/:tag"]).use((req, res) => {
+  const event = req.body as SonarrEvent
+
+  // Check for test message
+  if (event.eventType === "Test") {
+    logger.success("Received test message from sonarr!")
+    return res.status(200).send()
+  }
+
+  // Determine path
+  let path = join(event.series.path, event.episodeFile.relativePath)
+  queue.process(path, req.params.tag)
+
+  return res.status(204).send()
+})
+
+app.post(["/radarr", "/radarr/:tag"]).use((req, res) => {
+  const event = req.body as RadarrEvent
+
+  // Check for test message
+  if (event.eventType === "Test") {
+    logger.success("Received test message from radarr!")
+    return res.status(200).send()
+  }
+
+  // Determine path
+  let path = join(event.movie.folderPath, event.movieFile.relativePath)
+  queue.process(path, req.params.tag)
+
+  return res.status(204).send()
+})
 
 app.listen(process.env.PORT || 5000, () => logger.info(`Server is listening on ${process.env.PORT || 5000}`))

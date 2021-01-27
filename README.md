@@ -32,3 +32,7 @@ docker run -p 5000:5000 -v /mnt/user/appdata/horadric:/config -v /mnt/user/your_
 - `/bin/ffprobe` - Allows you to override the ffprobe executable with a custom version.
 - `/transcode` - The scratch directory for in-progress transcodes. If not provided, it will remain internal to the docker
   container.
+
+### Environment Variables
+
+- `CONCURRENCY` - The amount of encodes that can be executing at the same time. Defaults to 2.
