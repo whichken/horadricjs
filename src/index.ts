@@ -26,17 +26,17 @@ app.get("/", (_req, res) => {
   return res.json({ success: true })
 })
 
-app.post(["/manual", "/manual/:tag"]).use((req, res) => {
+app.post("/manual(/:profile)?", (req, res) => {
   const event = req.body as { path: string }
 
   if (!event.path) return res.status(400).json({ error: "Must provide path" })
 
-  queue.process(event.path, req.params.tag)
+  queue.process(event.path, req.params.profile)
 
   return res.status(204).send()
 })
 
-app.post(["/sonarr", "/sonarr/:tag"]).use((req, res) => {
+app.post("/sonarr(/:profile)?", (req, res) => {
   const event = req.body as SonarrEvent
 
   // Check for test message
@@ -47,12 +47,12 @@ app.post(["/sonarr", "/sonarr/:tag"]).use((req, res) => {
 
   // Determine path
   let path = join(event.series.path, event.episodeFile.relativePath)
-  queue.process(path, req.params.tag)
+  queue.process(path, req.params.profile)
 
   return res.status(204).send()
 })
 
-app.post(["/radarr", "/radarr/:tag"]).use((req, res) => {
+app.post("/radarr(/:profile)?", (req, res) => {
   const event = req.body as RadarrEvent
 
   // Check for test message
@@ -63,7 +63,7 @@ app.post(["/radarr", "/radarr/:tag"]).use((req, res) => {
 
   // Determine path
   let path = join(event.movie.folderPath, event.movieFile.relativePath)
-  queue.process(path, req.params.tag)
+  queue.process(path, req.params.profile)
 
   return res.status(204).send()
 })
