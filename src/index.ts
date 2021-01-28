@@ -43,7 +43,7 @@ app.post("/manual(/:profile)?", (req, res) => {
 
   if (lstatSync(path).isDirectory()) {
     const files = readdirSync(path)
-    files.forEach(file => queue.process(join(path, file), req.params.profile))
+    files.forEach(file => queue.process(join(event.path, file), req.params.profile))
   } else {
     queue.process(event.path, req.params.profile)
   }
