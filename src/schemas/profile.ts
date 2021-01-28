@@ -32,6 +32,8 @@ export type EncodingProfile = {
   crf?: string
   bitrate?: string
   size?: string
+  preset?: string
+  tune?: string
   tonemap?: boolean
 }
 

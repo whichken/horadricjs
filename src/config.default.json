@@ -6,6 +6,15 @@
       "fileRenames": [{ "regex": "(720p|1080p|2160p)$", "substitution": "720p HEVC" }],
       "delay": 0,
       "selection": {
+        "video": {
+          "priamry": [
+            {
+              "type": "video",
+              "description": "Ignore artwork",
+              "rules": [{ "property": "codec", "operator": "!=", "value": "mjpeg" }]
+            }
+          ]
+        },
         "audio": {
           "allowSecondary": true,
           "primary": [
@@ -56,7 +65,8 @@
           "description": "Base video profile",
           "result": {
             "codec": "libx265",
-            "crf": "26"
+            "crf": "26",
+            "preset": "slower"
           }
         },
         {

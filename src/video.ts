@@ -123,7 +123,7 @@ export class VideoFile {
             let framerate = stream.r_frame_rate ? parseFloat(stream.r_frame_rate) : undefined
             if (stream.r_frame_rate?.includes("/")) {
               const parts = stream.r_frame_rate.split("/")
-              framerate = parseInt(parts[0]) / parseInt(parts[1])
+              framerate = +(parseInt(parts[0]) / parseInt(parts[1])).toFixed(3)
             }
 
             this.srcStreams.push({
@@ -246,6 +246,8 @@ export class VideoFile {
 
           if (stream.profile.crf) command.addOption(`-crf ${stream.profile.crf}`)
           if (stream.profile.bitrate) command.addOption(`-b:${index} ${stream.profile.bitrate}`)
+          if (stream.profile.preset) command.addOption(`-preset ${stream.profile.preset}`)
+          if (stream.profile.tune) command.addOption(`-tune ${stream.profile.tune}`)
         }
       }
 
