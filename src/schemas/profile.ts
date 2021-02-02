@@ -35,6 +35,7 @@ export type EncodingProfile = {
   preset?: string
   tune?: string
   tonemap?: boolean
+  skip?: boolean
 }
 
 export type Rule = {

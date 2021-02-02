@@ -20,7 +20,6 @@ export class Queue {
     }
 
     setTimeout(() => {
-      logger.debug(`There are ${this.queue.activeCount} active encodes and ${this.queue.pendingCount} waiting`)
       this.queue(async () => {
         try {
           await video.analyze()
@@ -28,7 +27,11 @@ export class Queue {
           await video.encode()
           video.move()
         } catch (error) {
-          logger.error("An error occurred while encoding this file.", error)
+          logger.warn("This file did not process correctly.", error)
+        } finally {
+          logger.debug(
+            `There are currently ${this.queue.activeCount} active encodes and ${this.queue.pendingCount} waiting`
+          )
         }
       })
     }, video.profile.delay * 60000)
