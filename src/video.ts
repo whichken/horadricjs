@@ -235,6 +235,8 @@ export class VideoFile {
 
         command.addOption(`-c:${index} ${stream.profile.codec}`)
 
+        if (stream.profile.skip) throw Error("Skip was set in the encoding profile.")
+
         if (stream.profile.codec !== "copy") {
           const filters: string[] = []
           if (stream.profile.size) filters.push(`scale=${stream.profile.size}`)

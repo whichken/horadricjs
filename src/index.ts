@@ -30,6 +30,11 @@ app.get("/", (_req, res) => {
 app.post("/manual(/:profile)?", (req, res) => {
   const event = req.body as { path: string }
 
+  if (req.params.profile === "skip") {
+    logger.info('Skipping request due to "skip" profile being used.')
+    return res.status(204).send()
+  }
+
   if (!event.path) return res.status(400).json({ error: "Must provide path" })
 
   // Allow directories instead of just a file
@@ -54,6 +59,11 @@ app.post("/manual(/:profile)?", (req, res) => {
 app.post("/sonarr(/:profile)?", (req, res) => {
   const event = req.body as SonarrEvent
 
+  if (req.params.profile === "skip") {
+    logger.info('Skipping request due to "skip" profile being used.')
+    return res.status(204).send()
+  }
+
   // Check for test message
   if (event.eventType === "Test") {
     logger.success("Received test message from sonarr!")
@@ -69,6 +79,11 @@ app.post("/sonarr(/:profile)?", (req, res) => {
 
 app.post("/radarr(/:profile)?", (req, res) => {
   const event = req.body as RadarrEvent
+
+  if (req.params.profile === "skip") {
+    logger.info('Skipping request due to "skip" profile being used.')
+    return res.status(204).send()
+  }
 
   // Check for test message
   if (event.eventType === "Test") {
