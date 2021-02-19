@@ -13,6 +13,7 @@ type Stream = {
   index: number
   type: "video" | "audio" | "subtitle"
   codec: string
+  filename: string
   profile?: EncodingProfile
 
   // Common to all types, but not guaranteed to be known
@@ -98,6 +99,7 @@ export class VideoFile {
       throw Error(`Path ${this.srcPath} no longer exists or is otherwise unaccessible`)
     }
 
+    const filename = parse(this.srcPath).name
     const ffprobe = promisify(ffmpeg.ffprobe)
     this.logger.debug("Beginning probe of source file:")
 
@@ -112,6 +114,7 @@ export class VideoFile {
         const common: Stream = {
           index: stream.index,
           type: stream.codec_type! as "video" | "audio" | "subtitle",
+          filename,
           codec: stream.codec_name!,
           language: stream.tags?.language,
           title: stream.tags?.title,
@@ -185,7 +188,11 @@ export class VideoFile {
           .find(s => this.profile.selection[type].primary.some(r => new RuleEvaluator(r).evaluate(s)))
 
       if (!primary && type !== "subtitle") {
-        primary = this.srcStreams.filter(s => s.type === type).pop()
+        primary = this.srcStreams
+          .filter(s => s.type === type)
+          .slice()
+          .reverse()
+          .pop()
         this.logger.debug(`\tNo ${type} stream passed primary rules. Using the first available stream.`)
       }
 
@@ -226,8 +233,37 @@ export class VideoFile {
     }
   }
 
-  async encode() {
+  async detectCrop(index: number): Promise<string> {
     return new Promise((resolve, reject) => {
+      let command: FfmpegCommand = ffmpeg(this.srcPath)
+
+      command.addOption(`-map 0:${index}`)
+      command.setStartTime("00:01:00")
+      command.setDuration("00:05:00")
+
+      command.videoFilter("cropdetect=round=2")
+      command.format("null")
+
+      command.on("end", (stdout: string, stderr: string) => {
+        // Find the last crop value
+        const result = stderr.match(/\b(crop=-?\d*:-?\d*:-?\d*:-?\d*)\b(?![\s\S]*\b\1\b)/)
+        if (result.length) {
+          this.logger.debug(`\t${result[0]}`)
+          resolve(result[0])
+        } else reject(new Error("No crop value in output."))
+      })
+      command.on("error", (err, stdout, stderr) => reject(err))
+
+      command.on("start", (command: string) =>
+        this.logger.debug("Attempting to detect crop. This may take a moment...")
+      )
+
+      command.save("-")
+    })
+  }
+
+  async encode() {
+    return new Promise(async (resolve, reject) => {
       let command: FfmpegCommand = ffmpeg(this.srcPath)
 
       for (const [index, stream] of this.destStreams.entries()) {
@@ -239,6 +275,21 @@ export class VideoFile {
 
         if (stream.profile.codec !== "copy") {
           const filters: string[] = []
+
+          // Crop can either be provided or automatically detected
+          if (stream.profile.crop) {
+            if (stream.profile.crop === true) {
+              try {
+                const crop = await this.detectCrop(stream.index)
+                filters.push(crop)
+              } catch (error) {
+                logger.warn("Unable to automatically detect crop. The output won't be cropped.")
+              }
+            } else {
+              filters.push(`crop=${stream.profile.crop}`)
+            }
+          }
+
           if (stream.profile.size) filters.push(`scale=${stream.profile.size}`)
           if (stream.profile.tonemap)
             filters.push(
