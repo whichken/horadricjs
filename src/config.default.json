@@ -3,7 +3,12 @@
     "default": {
       "extension": "mkv",
       "pathMappings": [{ "from": "/media/", "to": "/" }],
-      "fileRenames": [{ "regex": "(720p|1080p|2160p)$", "substitution": "720p HEVC" }],
+      "fileRenames": [
+        { "regex": "( Proper)$", "substitution": "" },
+        { "regex": "(720p|1080p|2160p)$", "substitution": "720p HEVC" },
+        { "regex": "(SDTV|DVD|480p)$", "substitution": "$& HEVC" },
+        { "regex": "Remux-", "substitution": "Bluray-" }
+      ],
       "delay": 0,
       "selection": {
         "video": {
@@ -71,19 +76,21 @@
         },
         {
           "type": "video",
+          "description": "Crop remuxes",
+          "rules": [{ "property": "filename", "operator": "contains", "value": "Remux-" }],
+          "result": { "crop": true }
+        },
+        {
+          "type": "video",
           "description": "Downsacle to 720p if neccesary",
           "rules": [{ "property": "width", "operator": ">", "value": 1280 }],
-          "result": {
-            "size": "1280:-2"
-          }
+          "result": { "size": "1280:-2" }
         },
         {
           "type": "video",
           "description": "Tonemap HDR -> SDR if neccesary",
           "rules": [{ "property": "hdr", "operator": "==", "value": true }],
-          "result": {
-            "tonemap": true
-          }
+          "result": { "tonemap": true }
         },
         {
           "type": "audio",

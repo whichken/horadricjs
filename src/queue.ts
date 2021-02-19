@@ -16,7 +16,7 @@ export class Queue {
     if (video.profile.delay) {
       const now = new Date()
       now.setMinutes(now.getMinutes() + video.profile.delay)
-      video.logger.info(`Delaying encoding until ${now.toISOString()}`)
+      video.logger.info(`Delaying encoding until ${now.toISOString()}.`)
     }
 
     setTimeout(() => {
@@ -29,9 +29,7 @@ export class Queue {
         } catch (error) {
           logger.warn("This file did not process correctly.", error)
         } finally {
-          logger.debug(
-            `There are currently ${this.queue.activeCount} active encodes and ${this.queue.pendingCount} waiting`
-          )
+          logger.debug(`There are currently ${this.queue.pendingCount} encodes waiting.`)
         }
       })
     }, video.profile.delay * 60000)
