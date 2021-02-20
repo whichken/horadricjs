@@ -71,7 +71,7 @@
           "result": {
             "codec": "libx265",
             "crf": "26",
-            "preset": "slower"
+            "preset": "slow"
           }
         },
         {
@@ -82,7 +82,7 @@
         },
         {
           "type": "video",
-          "description": "Downsacle to 720p if neccesary",
+          "description": "Downscale to 720p if neccesary",
           "rules": [{ "property": "width", "operator": ">", "value": 1280 }],
           "result": { "size": "1280:-2" }
         },

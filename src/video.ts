@@ -299,6 +299,7 @@ export class VideoFile {
 
           if (stream.profile.crf) command.addOption(`-crf ${stream.profile.crf}`)
           if (stream.profile.bitrate) command.addOption(`-b:${index} ${stream.profile.bitrate}`)
+          if (stream.profile.channels) command.addOption(`-ac ${stream.profile.channels}`)
           if (stream.profile.preset) command.addOption(`-preset ${stream.profile.preset}`)
           if (stream.profile.tune) command.addOption(`-tune ${stream.profile.tune}`)
         }

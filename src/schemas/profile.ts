@@ -31,6 +31,7 @@ export type EncodingProfile = {
   codec: string
   crf?: string
   bitrate?: string
+  channels?: number
   size?: string
   crop?: string | boolean
   preset?: string
