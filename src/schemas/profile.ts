@@ -33,6 +33,7 @@ export type EncodingProfile = {
   bitrate?: string
   channels?: number
   size?: string
+  aspect?: string
   crop?: string | boolean
   preset?: string
   tune?: string
