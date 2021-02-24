@@ -27,6 +27,7 @@ type Stream = {
   height?: number
   framerate?: number
   hdr?: boolean
+  aspect?: string
 
   // audio
   channels?: number
@@ -134,7 +135,8 @@ export class VideoFile {
               width: stream.width,
               height: stream.height,
               framerate: stream.r_frame_rate ? framerate : undefined,
-              hdr: stream.color_space == "bt2020nc"
+              hdr: stream.color_space == "bt2020nc",
+              aspect: stream.display_aspect_ratio!
             })
             break
 
@@ -155,7 +157,7 @@ export class VideoFile {
             continue
         }
 
-        this.logger.debug(`\t${JSON.stringify(this.srcStreams.slice(-1).pop())}`)
+        this.logger.debug(`\t${JSON.stringify({ ...this.srcStreams.slice(-1).pop(), filename: undefined })}`)
       }
     } catch (error) {
       this.logger.error("Unable to probe video", error)
@@ -291,6 +293,13 @@ export class VideoFile {
           }
 
           if (stream.profile.size) filters.push(`scale=${stream.profile.size}`)
+
+          // If an aspect ratio was manually set, use that
+          if (stream.profile.aspect) filters.push(`setdar=${stream.profile.aspect.replace(":", "/")}`)
+          // If an aspect ratio was not manually set and the video isn't cropped, use the origial aspect
+          else if (!stream.profile.crop && stream.aspect) filters.push(`setdar=${stream.aspect.replace(":", "/")}`)
+          // If a crop was used and no aspect was manually set, assume a 1:1 pixel ratio and don't override the aspect
+
           if (stream.profile.tonemap)
             filters.push(
               "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
